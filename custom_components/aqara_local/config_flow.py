@@ -103,10 +103,22 @@ class AqaraLocalConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_zeroconf(
         self, discovery_info: ZeroconfServiceInfo
     ) -> ConfigFlowResult:
-        """Handle discovery via _aqara._tcp; pre-fill the host."""
+        """Handle discovery via _aqara._tcp; pre-fill the host.
+
+        Many Aqara devices advertise _aqara._tcp, including hubs like the
+        M100 that have no camera. Only continue for devices that actually
+        expose the RTSP port, so hubs are silently ignored.
+        """
         host = discovery_info.host
+
+        if not await _async_check_rtsp(host, DEFAULT_PORT):
+            return self.async_abort(reason="not_a_camera")
+
         await self.async_set_unique_id(host, raise_on_progress=False)
         self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+
+        # Use the advertised model name for a nicer title, when present.
+        model = discovery_info.properties.get("model") or "Aqara"
         self._discovered_host = host
-        self.context["title_placeholders"] = {"name": f"Aqara @ {host}"}
+        self.context["title_placeholders"] = {"name": f"{model} @ {host}"}
         return await self.async_step_user()

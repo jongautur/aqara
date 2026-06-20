@@ -19,7 +19,8 @@
       "cannot_connect": "Could not reach the RTSP port. Check the IP/port and that RTSP is enabled in the Aqara app."
     },
     "abort": {
-      "already_configured": "This camera is already configured."
+      "already_configured": "This camera is already configured.",
+      "not_a_camera": "This Aqara device has no RTSP camera (e.g. an M100 hub) and was skipped."
     }
   }
 }
