@@ -1,0 +1,14 @@
+{
+  "domain": "aqara_local",
+  "name": "Aqara Local (Camera)",
+  "version": "0.1.0",
+  "documentation": "https://github.com/YOUR_GH_USER/aqara_local",
+  "issue_tracker": "https://github.com/YOUR_GH_USER/aqara_local/issues",
+  "codeowners": ["@YOUR_GH_USER"],
+  "config_flow": true,
+  "dependencies": ["ffmpeg", "stream"],
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "zeroconf": ["_aqara._tcp.local."]
+}

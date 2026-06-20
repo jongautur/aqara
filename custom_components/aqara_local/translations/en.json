@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aqara Local Camera",
+        "description": "Enter the RTSP details from the Aqara app (Camera settings → RTSP). Defaults match the Aqara G410.",
+        "data": {
+          "name": "Name",
+          "host": "Host / IP address",
+          "port": "RTSP port",
+          "username": "RTSP username",
+          "password": "RTSP password",
+          "main_path": "Main stream path",
+          "sub_path": "Substream path"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the RTSP port. Check the IP/port and that RTSP is enabled in the Aqara app."
+    },
+    "abort": {
+      "already_configured": "This camera is already configured."
+    }
+  }
+}
