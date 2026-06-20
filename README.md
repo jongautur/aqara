@@ -37,6 +37,27 @@ username/password.
    (or accept the auto-discovered device).
 5. Enter host, port, RTSP username/password. Defaults suit the G410.
 
+## Bundled dashboard card
+
+The integration auto-registers a Lovelace card — **no manual HACS resource
+needed**. After install it appears in the card picker as **"Aqara Doorbell
+Card"**, or add it by YAML:
+
+```yaml
+type: custom:aqara-doorbell-card
+name: Front Door
+camera: camera.aqara_doorbell_main
+lock: lock.aqara_smart_lock_u200_lite_2
+battery: sensor.aqara_smart_lock_u200_lite_battery_2   # optional
+auto_relock: number.aqara_smart_lock_u200_lite_auto_relock_time  # optional
+motion: binary_sensor.g410_doorbell_motion             # optional (person badge)
+```
+
+It shows the live camera, lock status, battery, auto-relock and Open / Unlock /
+Lock buttons. The **Open** button auto-disables on locks that don't support the
+Matter OPEN (unlatch) feature. If the JS doesn't load after install, hard-refresh
+the browser (Ctrl/Cmd+Shift+R) to clear the cached frontend.
+
 ## Use with Frigate
 
 Point Frigate at the substream for detection and the main stream for
