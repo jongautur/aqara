@@ -1,68 +1,85 @@
-# Unified "Front Door" dashboard card: live camera + lock status + open button.
+# Unified "Front Door" dashboard card: live camera + lock + open button.
 #
 # Built entirely from Home Assistant's BUILT-IN cards — no extra HACS frontend
-# card required. Paste into a dashboard via: Edit Dashboard -> Add Card ->
-# Manual, or into your dashboard YAML.
+# card required. Paste via: Edit Dashboard -> Add Card -> Manual.
 #
-# Adjust these entity IDs to your install:
-#   camera.aqara_doorbell_main   <- from the Aqara Local integration
-#   lock.u200_lite               <- from the native Matter integration
+# Entity IDs below are the REAL ones for this install (front door = Útidyrahurð):
+#   camera.aqara_doorbell_main                        <- Aqara Local integration
+#   lock.aqara_smart_lock_u200_lite_2                 <- Útidyrahurð (front door)
+#   sensor.aqara_smart_lock_u200_lite_battery_2       <- front door battery
+#   number.aqara_smart_lock_u200_lite_auto_relock_time<- 30s auto-relock (firmware)
 #
-# The unlock button uses a confirmation dialog so the door can't be opened by
-# an accidental tap.
+# NOTE: the front-door lock supports lock.open (OPEN feature = unlatch & open).
+# The shed lock (Skúr, lock.aqara_smart_lock_u200_lite) does NOT — it only
+# locks/unlocks the deadbolt.
 
 type: vertical-stack
-title: Front Door
+title: Útidyrahurð
 cards:
-  # --- Live camera (tap to expand to full live stream) ---
+  # --- Live camera (tap to expand) ---
   - type: picture-glance
     title: Doorbell
     camera_image: camera.aqara_doorbell_main
     camera_view: live
     entities:
-      - entity: lock.u200_lite
+      - entity: lock.aqara_smart_lock_u200_lite_2
         tap_action:
           action: more-info
     tap_action:
       action: more-info
 
-  # --- Lock state + Open / Lock buttons ---
+  # --- Action buttons: Open (unlatch) / Unlock (bolt) / Lock ---
   - type: horizontal-stack
     cards:
       - type: button
-        name: Open Door
-        icon: mdi:lock-open-variant
-        icon_height: 40px
+        name: Open
+        icon: mdi:door-open
+        icon_height: 36px
+        entity: lock.aqara_smart_lock_u200_lite_2
+        show_state: true
         tap_action:
           action: call-service
-          service: lock.unlock
+          service: lock.open          # unlatches & opens the door
           target:
-            entity_id: lock.u200_lite
+            entity_id: lock.aqara_smart_lock_u200_lite_2
+          confirmation:
+            text: Open (unlatch) the front door?
+
+      - type: button
+        name: Unlock
+        icon: mdi:lock-open-variant
+        icon_height: 36px
+        entity: lock.aqara_smart_lock_u200_lite_2
+        show_state: false
+        tap_action:
+          action: call-service
+          service: lock.unlock        # retracts the deadbolt only
+          target:
+            entity_id: lock.aqara_smart_lock_u200_lite_2
           confirmation:
             text: Unlock the front door?
-        # turns the button green/red with lock state
-        entity: lock.u200_lite
-        show_state: true
 
       - type: button
         name: Lock
         icon: mdi:lock
-        icon_height: 40px
+        icon_height: 36px
+        entity: lock.aqara_smart_lock_u200_lite_2
+        show_state: false
         tap_action:
           action: call-service
           service: lock.lock
           target:
-            entity_id: lock.u200_lite
-        entity: lock.u200_lite
-        show_state: false
+            entity_id: lock.aqara_smart_lock_u200_lite_2
 
-  # --- Lock battery (Matter exposes this) ---
+  # --- Status row: battery + auto-relock ---
   - type: entities
     entities:
-      - entity: sensor.u200_lite_battery
-        name: Lock battery
-      - entity: lock.u200_lite
+      - entity: lock.aqara_smart_lock_u200_lite_2
         name: Lock status
+      - entity: sensor.aqara_smart_lock_u200_lite_battery_2
+        name: Battery
+      - entity: number.aqara_smart_lock_u200_lite_auto_relock_time
+        name: Auto-relock (s)
 
 # ---------------------------------------------------------------------------
 # LOW-LATENCY ALTERNATIVE (recommended for a doorbell)
@@ -76,5 +93,4 @@ cards:
 #     # or stream straight from go2rtc by name:
 #     # url: g410_doorbell
 #
-# Everything else (buttons, battery) stays the same.
-
+# Everything else (buttons, status) stays the same.
