@@ -1,0 +1,80 @@
+# Unified "Front Door" dashboard card: live camera + lock status + open button.
+#
+# Built entirely from Home Assistant's BUILT-IN cards — no extra HACS frontend
+# card required. Paste into a dashboard via: Edit Dashboard -> Add Card ->
+# Manual, or into your dashboard YAML.
+#
+# Adjust these entity IDs to your install:
+#   camera.aqara_doorbell_main   <- from the Aqara Local integration
+#   lock.u200_lite               <- from the native Matter integration
+#
+# The unlock button uses a confirmation dialog so the door can't be opened by
+# an accidental tap.
+
+type: vertical-stack
+title: Front Door
+cards:
+  # --- Live camera (tap to expand to full live stream) ---
+  - type: picture-glance
+    title: Doorbell
+    camera_image: camera.aqara_doorbell_main
+    camera_view: live
+    entities:
+      - entity: lock.u200_lite
+        tap_action:
+          action: more-info
+    tap_action:
+      action: more-info
+
+  # --- Lock state + Open / Lock buttons ---
+  - type: horizontal-stack
+    cards:
+      - type: button
+        name: Open Door
+        icon: mdi:lock-open-variant
+        icon_height: 40px
+        tap_action:
+          action: call-service
+          service: lock.unlock
+          target:
+            entity_id: lock.u200_lite
+          confirmation:
+            text: Unlock the front door?
+        # turns the button green/red with lock state
+        entity: lock.u200_lite
+        show_state: true
+
+      - type: button
+        name: Lock
+        icon: mdi:lock
+        icon_height: 40px
+        tap_action:
+          action: call-service
+          service: lock.lock
+          target:
+            entity_id: lock.u200_lite
+        entity: lock.u200_lite
+        show_state: false
+
+  # --- Lock battery (Matter exposes this) ---
+  - type: entities
+    entities:
+      - entity: sensor.u200_lite_battery
+        name: Lock battery
+      - entity: lock.u200_lite
+        name: Lock status
+
+# ---------------------------------------------------------------------------
+# LOW-LATENCY ALTERNATIVE (recommended for a doorbell)
+# ---------------------------------------------------------------------------
+# picture-glance "live" uses HLS (~2-5s delay). For near-real-time video,
+# install the "WebRTC Camera" frontend card from HACS and replace the
+# picture-glance card above with:
+#
+#   - type: custom:webrtc-camera
+#     entity: camera.aqara_doorbell_main
+#     # or stream straight from go2rtc by name:
+#     # url: g410_doorbell
+#
+# Everything else (buttons, battery) stays the same.
+
