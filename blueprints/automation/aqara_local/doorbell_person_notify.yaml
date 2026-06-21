@@ -2,18 +2,21 @@ blueprint:
   name: Aqara Doorbell – Person at door notification
   description: >
     Sends an actionable Companion-app notification (snapshot + Unlock /
-    Live-view buttons) when Frigate detects a person at the Aqara doorbell.
+    Live-view buttons) when someone is detected at the Aqara doorbell.
     Tapping **Unlock** unlocks the chosen Matter lock; **Live view** opens the
     camera. Fully local — no cloud.
 
-    Requires Frigate (with the Frigate HA integration) running so a
-    person binary_sensor exists, e.g. binary_sensor.<camera>_person_occupancy.
+    Use the G410's **Matter Occupancy** binary_sensor as the trigger (no
+    Frigate required), or a Frigate person binary_sensor if you prefer.
   domain: automation
   source_url: https://github.com/jongautur/aqara/blob/main/blueprints/automation/aqara_local/doorbell_person_notify.yaml
   input:
     person_sensor:
-      name: Person sensor (Frigate)
-      description: Binary sensor that turns on when a person is detected.
+      name: Presence sensor
+      description: >
+        Binary sensor that turns on when someone is at the door — the G410's
+        Matter Occupancy sensor (the one that actually flips to Detected), or a
+        Frigate person sensor.
       selector:
         entity:
           domain: binary_sensor
