@@ -16,7 +16,9 @@
       }
     },
     "error": {
-      "cannot_connect": "Could not reach the RTSP port. Check the IP/port and that RTSP is enabled in the Aqara app."
+      "cannot_connect": "Could not reach the RTSP port. Check the IP/port and that RTSP is enabled in the Aqara app.",
+      "invalid_auth": "The RTSP username or password was rejected by the camera. Check the credentials from the Aqara app.",
+      "invalid_path": "The camera rejected the stream path. Check the Main/Substream paths (e.g. /ch1 and /ch2 on the G410)."
     },
     "abort": {
       "already_configured": "This camera is already configured.",

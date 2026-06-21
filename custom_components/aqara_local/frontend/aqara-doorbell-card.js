@@ -1,13 +1,15 @@
 /**
  * Aqara Doorbell Card
- * A self-contained Lovelace card: live camera + U200 lock control
- * (single lock/unlock toggle), battery, auto-relock and a person-at-door badge.
+ * A self-contained Lovelace card: live camera + U200 lock control.
+ * One door-state toggle per lock (green/closed = locked, red/open = unlocked),
+ * an optional second lock for two-door setups, battery, auto-relock and a
+ * person-at-door badge.
  *
  * Dependency-free (no build step). Uses HA's card helpers for the live
  * camera so it inherits HLS/WebRTC/go2rtc behaviour automatically.
  */
 
-const CARD_VERSION = "0.2.1";
+const CARD_VERSION = "0.3.0";
 
 class AqaraDoorbellCard extends HTMLElement {
   static getStubConfig() {
@@ -79,9 +81,10 @@ class AqaraDoorbellCard extends HTMLElement {
         }
         .btns button:hover { filter: brightness(1.08); }
         .btns button:disabled { opacity: .45; cursor: default; }
-        .btns button ha-icon { --mdc-icon-size: 24px; }
-        .btns .is-locked { background: var(--primary-color); color: #fff; }
-        .btns .is-unlocked { background: var(--success-color, #43a047); color: #fff; }
+        .btns button ha-icon { --mdc-icon-size: 26px; }
+        /* Colour reflects the CURRENT door state. */
+        .btns .is-locked { background: var(--success-color, #43a047); color: #fff; }
+        .btns .is-unlocked { background: var(--error-color, #db4437); color: #fff; }
         .title { padding: 12px 14px 0; font-size: 18px; font-weight: 600; }
       </style>
       <div class="wrap">
@@ -89,15 +92,10 @@ class AqaraDoorbellCard extends HTMLElement {
         <div class="title" id="title"></div>
         <div class="cam-slot" id="camSlot"></div>
         <div class="status">
-          <span>Lock: <span class="state" id="lockState">—</span></span>
           <span id="batteryWrap">Battery: <span class="state" id="battery">—</span></span>
           <span id="relockWrap">Auto-relock: <span class="state" id="relock">—</span></span>
         </div>
-        <div class="btns">
-          <button id="btnToggle">
-            <ha-icon icon="mdi:lock"></ha-icon><span>Lock</span>
-          </button>
-        </div>
+        <div class="btns" id="btns"></div>
       </div>
     `;
     this.appendChild(card);
@@ -107,22 +105,27 @@ class AqaraDoorbellCard extends HTMLElement {
       title: card.querySelector("#title"),
       badge: card.querySelector("#badge"),
       camSlot: card.querySelector("#camSlot"),
-      lockState: card.querySelector("#lockState"),
       battery: card.querySelector("#battery"),
       batteryWrap: card.querySelector("#batteryWrap"),
       relock: card.querySelector("#relock"),
       relockWrap: card.querySelector("#relockWrap"),
-      btnToggle: card.querySelector("#btnToggle"),
-      btnIcon: card.querySelector("#btnToggle ha-icon"),
-      btnLabel: card.querySelector("#btnToggle span"),
+      btns: card.querySelector("#btns"),
     };
 
-    this._els.btnToggle.addEventListener("click", () => {
-      const locked = this._isLocked();
-      this._service(
-        locked ? "unlock" : "lock",
-        locked ? "Unlock the door?" : null
-      );
+    // One toggle button per configured lock (primary + optional second).
+    const locks = [this._config.lock];
+    if (this._config.lock2) locks.push(this._config.lock2);
+    this._btns = locks.map((entity) => {
+      const btn = document.createElement("button");
+      btn.innerHTML = `<ha-icon></ha-icon><span></span>`;
+      btn.addEventListener("click", () => this._toggle(entity));
+      this._els.btns.appendChild(btn);
+      return {
+        entity,
+        el: btn,
+        icon: btn.querySelector("ha-icon"),
+        label: btn.querySelector("span"),
+      };
     });
 
     this._ensureCamera();
@@ -142,15 +145,16 @@ class AqaraDoorbellCard extends HTMLElement {
     this._els.camSlot.appendChild(this._cameraEl);
   }
 
-  _isLocked() {
-    const obj = this._hass && this._hass.states[this._config.lock];
+  _isLocked(entity) {
+    const obj = this._hass && this._hass.states[entity];
     return !!obj && obj.state === "locked";
   }
 
-  _service(action, confirmText) {
-    if (confirmText && !window.confirm(confirmText)) return;
-    this._hass.callService("lock", action, {
-      entity_id: this._config.lock,
+  _toggle(entity) {
+    const locked = this._isLocked(entity);
+    if (locked && !window.confirm("Unlock the door?")) return;
+    this._hass.callService("lock", locked ? "unlock" : "lock", {
+      entity_id: entity,
     });
   }
 
@@ -163,22 +167,24 @@ class AqaraDoorbellCard extends HTMLElement {
 
     if (this._cameraEl) this._cameraEl.hass = this._hass;
 
-    const lockObj = this._hass.states[c.lock];
-    const lockState = lockObj ? lockObj.state : "unavailable";
-    this._els.lockState.textContent = this._pretty(lockState);
-
-    // Single toggle: shows the action it will perform from the current state.
-    const locked = this._isLocked();
-    const busy = lockState === "locking" || lockState === "unlocking";
-    const unavailable = !lockObj || lockState === "unavailable";
-    this._els.btnToggle.classList.toggle("is-locked", locked);
-    this._els.btnToggle.classList.toggle("is-unlocked", !locked && !unavailable);
-    this._els.btnIcon.setAttribute(
-      "icon",
-      locked ? "mdi:lock-open-variant" : "mdi:lock"
-    );
-    this._els.btnLabel.textContent = locked ? "Unlock" : "Lock";
-    this._els.btnToggle.disabled = busy || unavailable;
+    // Each toggle shows the door's CURRENT state: green/closed when locked,
+    // red/open when unlocked. Tap flips it.
+    const multi = this._btns.length > 1;
+    for (const { entity, el, icon, label } of this._btns) {
+      const obj = this._hass.states[entity];
+      const state = obj ? obj.state : "unavailable";
+      const locked = state === "locked";
+      const busy = state === "locking" || state === "unlocking";
+      const unavailable = !obj || state === "unavailable";
+      el.classList.toggle("is-locked", locked);
+      el.classList.toggle("is-unlocked", !locked && !unavailable);
+      icon.setAttribute("icon", locked ? "mdi:door-closed" : "mdi:door-open");
+      // With two doors, label each by name; with one, show the state word.
+      label.textContent = multi
+        ? (obj && obj.attributes.friendly_name) || "Lock"
+        : this._pretty(state);
+      el.disabled = busy || unavailable;
+    }
 
     // Battery
     if (c.battery && this._hass.states[c.battery]) {
@@ -250,6 +256,11 @@ class AqaraDoorbellCardEditor extends HTMLElement {
         selector: { entity: { domain: "lock" } },
       },
       {
+        name: "lock2",
+        label: "Second lock (optional)",
+        selector: { entity: { domain: "lock" } },
+      },
+      {
         name: "battery",
         label: "Battery sensor (optional)",
         selector: { entity: { domain: "sensor", device_class: "battery" } },
@@ -277,7 +288,7 @@ window.customCards = window.customCards || [];
 window.customCards.push({
   type: "aqara-doorbell-card",
   name: "Aqara Doorbell Card",
-  description: "Live camera + U200 lock control (single lock/unlock toggle).",
+  description: "Live camera + U200 door toggle(s) (green=locked, red=unlocked).",
   preview: true,
   documentationURL: "https://github.com/jongautur/aqara",
 });
