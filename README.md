@@ -71,6 +71,25 @@ inputs:
     roles: [detect]
 ```
 
+## Notifications (blueprints)
+
+Two ready-made automation blueprints ship in
+[`blueprints/automation/aqara_local/`](blueprints/automation/aqara_local). They
+send actionable **Companion-app** notifications (with action buttons) and are
+fully local. Import, then pick your entities + your `notify.mobile_app_*`
+service:
+
+- **Doorbell – person at door** — fires on a Frigate person sensor, sends a
+  snapshot with **Unlock** / **Live view** buttons; tapping Unlock unlocks your
+  Matter lock.
+  [Import](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjongautur%2Faqara%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Faqara_local%2Fdoorbell_person_notify.yaml)
+- **Lock – status notifications** — alerts on unlock, jam, and
+  left-unlocked-too-long (with a **Lock now** button).
+  [Import](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fjongautur%2Faqara%2Fblob%2Fmain%2Fblueprints%2Fautomation%2Faqara_local%2Flock_notify.yaml)
+
+> The doorbell blueprint needs Frigate (+ its HA integration) running so a
+> person `binary_sensor` exists. The lock blueprint just needs your Matter lock.
+
 ## Limitations / honesty
 
 - This exposes **video/audio/snapshots** only. The **physical doorbell button

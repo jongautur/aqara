@@ -1,0 +1,107 @@
+blueprint:
+  name: Aqara Lock – status notifications
+  description: >
+    Sends Companion-app notifications for the Matter U200 lock: when it is
+    unlocked, when it reports a jam, and when it has been left unlocked too
+    long. The "left unlocked" alert includes a **Lock now** action button.
+  domain: automation
+  source_url: https://github.com/jongautur/aqara/blob/main/blueprints/automation/aqara_local/lock_notify.yaml
+  input:
+    lock_entity:
+      name: Lock
+      selector:
+        entity:
+          domain: lock
+    notify_service:
+      name: Notify service
+      description: >
+        Your phone's Companion-app notify service, e.g.
+        notify.mobile_app_pixel_8.
+      default: notify.notify
+      selector:
+        text: {}
+    notify_on_unlock:
+      name: Notify on every unlock
+      description: Send a notification each time the door is unlocked.
+      default: true
+      selector:
+        boolean: {}
+    left_unlocked_minutes:
+      name: Warn if left unlocked for (minutes)
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 120
+          unit_of_measurement: minutes
+          mode: box
+
+mode: queued
+max: 5
+
+variables:
+  lock_entity: !input lock_entity
+  notify_on_unlock: !input notify_on_unlock
+  lock_name: "{{ state_attr(lock_entity, 'friendly_name') or 'Lock' }}"
+
+trigger:
+  - platform: state
+    entity_id: !input lock_entity
+    to: unlocked
+    id: unlocked
+  - platform: state
+    entity_id: !input lock_entity
+    to: jammed
+    id: jammed
+  - platform: state
+    entity_id: !input lock_entity
+    to: unlocked
+    for:
+      minutes: !input left_unlocked_minutes
+    id: left_unlocked
+
+action:
+  - choose:
+      - conditions: "{{ trigger.id == 'jammed' }}"
+        sequence:
+          - service: "{{ notify_service }}"
+            data:
+              title: "⚠️ {{ lock_name }} jammed"
+              message: "The lock reported a jam — check the door."
+              data:
+                tag: aqara-lock
+                importance: high
+      - conditions: "{{ trigger.id == 'left_unlocked' }}"
+        sequence:
+          - service: "{{ notify_service }}"
+            data:
+              title: "🔓 {{ lock_name }} still unlocked"
+              message: "It has been unlocked for a while."
+              data:
+                tag: aqara-lock
+                actions:
+                  - action: AQARA_LOCK
+                    title: Lock now
+      - conditions: "{{ trigger.id == 'unlocked' and notify_on_unlock }}"
+        sequence:
+          - service: "{{ notify_service }}"
+            data:
+              title: "🔓 {{ lock_name }} unlocked"
+              message: "The door was just unlocked."
+              data:
+                tag: aqara-lock
+  # Handle the "Lock now" action from the left-unlocked alert.
+  - wait_for_trigger:
+      - platform: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: AQARA_LOCK
+    timeout:
+      minutes: 10
+    continue_on_timeout: true
+  - choose:
+      - conditions: "{{ wait.trigger is not none }}"
+        sequence:
+          - service: lock.lock
+            target:
+              entity_id: "{{ lock_entity }}"

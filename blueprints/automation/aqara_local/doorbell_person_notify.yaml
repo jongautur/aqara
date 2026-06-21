@@ -1,0 +1,112 @@
+blueprint:
+  name: Aqara Doorbell – Person at door notification
+  description: >
+    Sends an actionable Companion-app notification (snapshot + Unlock /
+    Live-view buttons) when Frigate detects a person at the Aqara doorbell.
+    Tapping **Unlock** unlocks the chosen Matter lock; **Live view** opens the
+    camera. Fully local — no cloud.
+
+    Requires Frigate (with the Frigate HA integration) running so a
+    person binary_sensor exists, e.g. binary_sensor.<camera>_person_occupancy.
+  domain: automation
+  source_url: https://github.com/jongautur/aqara/blob/main/blueprints/automation/aqara_local/doorbell_person_notify.yaml
+  input:
+    person_sensor:
+      name: Person sensor (Frigate)
+      description: Binary sensor that turns on when a person is detected.
+      selector:
+        entity:
+          domain: binary_sensor
+    camera_entity:
+      name: Camera
+      description: The doorbell camera (used for the snapshot and Live view).
+      selector:
+        entity:
+          domain: camera
+    lock_entity:
+      name: Lock to control
+      description: The Matter lock unlocked by the "Unlock" action.
+      selector:
+        entity:
+          domain: lock
+    notify_service:
+      name: Notify service
+      description: >
+        Your phone's Companion-app notify service, e.g.
+        notify.mobile_app_pixel_8. Find it under Developer Tools → Actions.
+      default: notify.notify
+      selector:
+        text: {}
+    snapshot_path:
+      name: Snapshot file path
+      description: Where the snapshot is written before sending.
+      default: /media/doorbell/last_person.jpg
+      selector:
+        text: {}
+    cooldown:
+      name: Re-notify cooldown (seconds)
+      description: Ignore further person events for this long after notifying.
+      default: 30
+      selector:
+        number:
+          min: 0
+          max: 600
+          unit_of_measurement: seconds
+          mode: box
+
+mode: single
+max_exceeded: silent
+
+variables:
+  lock_entity: !input lock_entity
+  camera_entity: !input camera_entity
+  snapshot_path: !input snapshot_path
+
+trigger:
+  - platform: state
+    entity_id: !input person_sensor
+    from: "off"
+    to: "on"
+
+action:
+  - service: camera.snapshot
+    target:
+      entity_id: !input camera_entity
+    data:
+      filename: "{{ snapshot_path }}"
+  - service: "{{ notify_service }}"
+    data:
+      title: "🚪 Someone at the door"
+      message: "Person detected at the front door"
+      data:
+        image: "{{ snapshot_path }}"
+        tag: aqara-doorbell
+        actions:
+          - action: AQARA_UNLOCK
+            title: Unlock
+          - action: URI
+            title: Live view
+            uri: "entityId:{{ camera_entity }}"
+  # Wait for the user to tap "Unlock" on the notification.
+  - wait_for_trigger:
+      - platform: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: AQARA_UNLOCK
+    timeout:
+      minutes: 5
+    continue_on_timeout: true
+  - choose:
+      - conditions: "{{ wait.trigger is not none }}"
+        sequence:
+          - service: lock.unlock
+            target:
+              entity_id: "{{ lock_entity }}"
+          # Clear the notification once handled.
+          - service: "{{ notify_service }}"
+            data:
+              message: clear_notification
+              data:
+                tag: aqara-doorbell
+  - delay:
+      seconds: !input cooldown
